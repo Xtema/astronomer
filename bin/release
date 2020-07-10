@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC1090
 set -euo pipefail
+
+REPO_URL="internal-helm.astronomer.io"
 
 if [[ -z "${HELM_CHART_PATH}" ]]; then
   echo "ERROR: must provide HELM_CHART_PATH pointing to astronomer-*.tgz, will not release without an artifact."
@@ -7,10 +10,9 @@ if [[ -z "${HELM_CHART_PATH}" ]]; then
 fi
 
 # Common bash line that sets DIR to the directory of this script
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-REPO_DIR=$DIR/../
+DIR="${0%/*}"
 
-source $DIR/install-ci-tools
+source "$DIR/install-ci-tools"
 sudo apt-get update > /dev/null
 sudo apt-get install -y tree > /dev/null
 
@@ -21,10 +23,10 @@ mkdir -p /tmp/astronomer-chart-release
 cd /tmp/astronomer-chart-release
 
 # Copy the artifact
-cp $HELM_CHART_PATH .
+cp "$HELM_CHART_PATH" .
 
 # Unzip the artifact
-tar -xvzf $HELM_CHART_PATH -C .
+tar -xvzf "$HELM_CHART_PATH" -C .
 
 echo ""
 echo "========================="
@@ -45,16 +47,16 @@ echo "Releasing chart..."
 export BOTO_CONFIG=/dev/null
 
 set +x
-echo ${GCP_TOKEN} > /tmp/gcs_token.json
+echo "${GCP_TOKEN}" > /tmp/gcs_token.json
 gcloud auth activate-service-account --key-file=/tmp/gcs_token.json
 
 set -xe
 # Set up the index.html file
-wget https://helm.astronomer.io/index.yaml -O /tmp/index.yaml.current
-helm repo index . --url https://helm.astronomer.io --merge /tmp/index.yaml.current
+wget "https://$REPO_URL/index.yaml" -O /tmp/index.yaml.current
+helm repo index . --url "https://$REPO_URL" --merge /tmp/index.yaml.current
 
-gsutil cp -a public-read $HELM_CHART_PATH gs://helm.astronomer.io
-gsutil cp -a public-read ./index.yaml gs://helm.astronomer.io
+gsutil cp -a public-read "$HELM_CHART_PATH" "gs://$REPO_URL"
+gsutil cp -a public-read ./index.yaml "gs://$REPO_URL"
 
 set +x
 echo ""
